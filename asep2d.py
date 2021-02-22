@@ -64,12 +64,12 @@ class ASEP2D():
             roll_num = -back_col - 1
         self.state = np.roll(self.state, roll_num)
         if sign > 0:
-            #print(ncol, roll_num)
             self.state[1:ncol+1+roll_num] = self.state[:ncol+roll_num]
             self.state[0] = back_row + self.nrows
         else:
-            self.state[ncol+roll_num:-1] = self.state[ncol+1+roll_num:]
-            self.state[-1] = back_row + self.nrows
+            #print(ncol, roll_num)
+            self.state[ncol+roll_num:-2] = self.state[ncol+roll_num+1:-1]
+            self.state[-2] = back_row + self.nrows
         self.state = np.roll(self.state, -roll_num)
         #else:
         #    dest = sorted([self._cadd(back_col, 2*(sign>0)), ncol+2*(sign>0)])
