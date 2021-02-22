@@ -4,7 +4,7 @@ class ASEP2D():
     def __init__(self, nrows, ncols):
         if not ncols > nrows:
             raise ValueError('Number of columns must be larger than number of rows')
-        
+
         self.nrows = nrows
         self.ncols = ncols
 
@@ -85,36 +85,39 @@ class ASEP2D():
         return (val1 + val2 + self.nrows) % self.nrows
 
 def main():
-    grids = np.load('asep_grids_0.6.npy')
-    #grids = np.load('tasep_grids.npy')
-    #grids = np.load('asep_grids_0.8.npy')
-    
     import sys
-    import pylab as P
-    from matplotlib import animation
+    import os.path as op
+    import argparse
+    import imageio
 
-    W = animation.writers['ffmpeg']
-    writer = W(fps=30, bitrate=1800)
+    parser = argparse.ArgumentParser(description='Save evolution of ASEP2D model')
+    parser.add_argument('states_file', help='Path to states file (.npy format)')
+    parser.add_argument('-m', '--max_step',
+                        help='Highest step number to plot. Default: all',
+                        type=int, default=-1)
+    parser.add_argument('-s', '--step_skip',
+                        help='Save every step_skip steps. Default: 100',
+                        type=int, default=100)
+    parser.add_argument('--oversampling',
+                        help='Image pixels per data pixel. Default: 16',
+                        type=int, default=16)
+    args = parser.parse_args()
 
-    fig = P.figure(figsize=(7.5, 2))
-    ax = fig.add_subplot(111)
-    ax.imshow(grids[0], cmap='coolwarm')
-    ax.set_axis_off()
-    P.tight_layout()
+    states = np.load(args.states_file)
+    a = ASEP2D((states[0].max() + 1) // 2, states.shape[1])
 
-    def update(i):
-        sys.stderr.write('\r%d'%i)
-        im = ax.imshow(grids[i], cmap='coolwarm')
-        return im, 
-        
-    #anim = animation.FuncAnimation(P.gcf(), update, frames=np.arange(0,10000,100), interval=30, blit=True)
-    #anim.save('asep2d_1.mp4', writer=writer)
+    max_frame = len(states) if args.max_step < 0 else args.max_step
+    sel_states = states[0:max_frame:args.step_skip]
 
-    #anim = animation.FuncAnimation(P.gcf(), update, frames=np.arange(10000,20000,100), interval=30, blit=True)
-    #anim.save('asep2d_2.mp4', writer=writer)
+    grids = np.array([a.togrid(s)+1 for s in sel_states]).astype('u1')
+    grids[grids==2] = 255
+    grids[grids==1] = 128
+    grids = np.repeat(grids, args.oversampling, axis=1)
+    grids = np.repeat(grids, args.oversampling, axis=2)
 
-    anim = animation.FuncAnimation(P.gcf(), update, frames=np.arange(20000,30000,100), interval=30, blit=True)
-    anim.save('asep2d_3.mp4', writer=writer)
+    fname = '%s.mp4' % op.splitext(args.states_file)[0]
+    print('Saving to', fname)
+    imageio.mimwrite(fname, grids, fps=30, quality=10)
 
 if __name__ == '__main__':
     main()
