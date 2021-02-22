@@ -1,1 +1,6 @@
+# Cached files
 __pycache__/
+
+# Data files
+*.npy
+*.mp4
