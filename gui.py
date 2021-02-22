@@ -67,6 +67,9 @@ class ASEPGUI(QtWidgets.QMainWindow):
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
         line.addStretch(1)
+        button = QtWidgets.QPushButton('Load')
+        button.clicked.connect(self.load)
+        line.addWidget(button)
         button = QtWidgets.QPushButton('Save')
         button.clicked.connect(self.save)
         line.addWidget(button)
@@ -121,7 +124,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
         print('Loading from', fname)
         self.states = list(np.load(fname))
         ncols = len(self.states[0])
-        nrows = (self.states[0].meax() + 1) // 2
+        nrows = (self.states[0].max() + 1) // 2
         self.asep = asep2d.ASEP2D(nrows, ncols)
         self.asep.state = self.states[-1].copy()
         self.n_val.setText(str(nrows))
