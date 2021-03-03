@@ -28,14 +28,18 @@ class ASEP2D():
     def reset(self):
         self.state = self._init_state.copy()
 
-    def togrid(self, state=None):
+    def togrid(self, state=None, restrict=False):
         grid = np.zeros((self.nrows, self.ncols), dtype='i1')
         if state is None:
             state = self.state
+        if restrict:
+            c0 = np.where(state == 0)[0][0]
+            state = np.roll(state.copy(), -c0)
 
         sel = state < self.nrows
         grid[state[sel], sel] = 1
         grid[state[~sel]-self.nrows, ~sel] = -1
+
         return grid
 
     def step_right(self, row):
