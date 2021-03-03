@@ -42,6 +42,9 @@ class ASEPGUI(QtWidgets.QMainWindow):
         button.clicked.connect(self.reset)
         line.addWidget(button)
         line.addStretch(1)
+        self.restrict = QtWidgets.QCheckBox('Restrict')
+        self.restrict.stateChanged.connect(self.update_view)
+        line.addWidget(self.restrict)
 
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
@@ -107,7 +110,8 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.update_view()
 
     def update_view(self):
-        self.grids = np.array([self.asep.togrid(state) for state in self.states])
+        do_restrict = self.restrict.isChecked()
+        self.grids = np.array([self.asep.togrid(state, restrict=do_restrict) for state in self.states])
         self.imview.setImage(self.grids.transpose(0, 2, 1), levels=(-1,1))
 
     def save(self):
