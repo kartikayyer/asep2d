@@ -105,6 +105,8 @@ def main():
     parser.add_argument('--oversampling',
                         help='Image pixels per data pixel. Default: 16',
                         type=int, default=16)
+    parser.add_argument('-r', '--restrict',
+                        help='Show restricted grids', action='store_true')
     args = parser.parse_args()
 
     states = np.load(args.states_file)
@@ -113,7 +115,7 @@ def main():
     max_frame = len(states) if args.max_step < 0 else args.max_step
     sel_states = states[0:max_frame:args.step_skip]
 
-    grids = np.array([a.togrid(s)+1 for s in sel_states]).astype('u1')
+    grids = np.array([a.togrid(s, restrict=args.restrict)+1 for s in sel_states]).astype('u1')
     grids[grids==2] = 255
     grids[grids==1] = 128
     grids = np.repeat(grids, args.oversampling, axis=1)
