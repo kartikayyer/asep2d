@@ -3,6 +3,7 @@ import sys
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
+from numpy import random
 
 import asep2d
 
@@ -92,14 +93,22 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.update_view()
 
     def run(self):
-        p_val = float(self.p_val.text())
-        q_val = float(self.q_val.text())
-        prob_right = p_val / (p_val + q_val)
+        #p_val = float(self.p_val.text())
+        #q_val = float(self.q_val.text())
+        #prob_right = p_val / (p_val + q_val)
         curr_steps = len(self.states)
         num_steps = int(self.num_steps.text())
 
+        #Added by Arvind for random q jumps
+        pvals = [1]*(self.asep.nrows)
+        qvals = random.rand(self.asep.nrows)
+        print(qvals)
+        
         for i in range(num_steps):
             row = np.random.randint(self.asep.nrows)
+
+            prob_right = pvals[row] / (pvals[row] + qvals[row]) 
+
             sign = int(np.random.rand() < prob_right) * 2 - 1
             self.asep._step(row, sign)
             self.states.append(self.asep.state.copy())
