@@ -1,9 +1,10 @@
+#!/usr/bin/env python
+
 import sys
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
-from numpy import random
 
 import asep2d
 
@@ -68,9 +69,30 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.curr_steps = QtWidgets.QLabel('')
         line.addWidget(self.curr_steps)
 
+        '''
+        line = QtWidgets.QHBoxLayout()
+        layout.addLayout(line)
+        label = QtWidgets.QLabel('Statistics:')
+        line.addWidget(label)
+        button = QtWidgets.QPushButton('Type-1 average')
+        button.clicked.connect(lambda _: self.calc_mean(1))
+        line.addWidget(button)
+        button = QtWidgets.QPushButton('Type-2 average')
+        button.clicked.connect(lambda _: self.calc_mean(2))
+        line.addWidget(button)
+        label = QtWidgets.QLabel('Transient:')
+        line.addWidget(label)
+        self.transient_steps = QtWidgets.QLineEdit('5000')
+        line.addWidget(self.transient_steps)
+        line.addStretch(1)
+        '''
+
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
         line.addStretch(1)
+        button = QtWidgets.QPushButton('Refresh')
+        button.clicked.connect(self.update_view)
+        line.addWidget(button)
         button = QtWidgets.QPushButton('Load')
         button.clicked.connect(self.load)
         line.addWidget(button)
@@ -93,21 +115,23 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.update_view()
 
     def run(self):
-        #p_val = float(self.p_val.text())
-        #q_val = float(self.q_val.text())
-        #prob_right = p_val / (p_val + q_val)
+        try:
+            pvals = np.ones(self.asep.nrows)*float(self.p_val.text())
+        except ValueError:
+            pvals = np.random.rand(self.asep.nrows)
+
+        try:
+            qvals = np.ones(self.asep.nrows)*float(self.q_val.text())
+        except ValueError:
+            qvals = np.random.rand(self.asep.nrows)
+
         curr_steps = len(self.states)
         num_steps = int(self.num_steps.text())
 
-        #Added by Arvind for random q jumps
-        pvals = [1]*(self.asep.nrows)
-        qvals = random.rand(self.asep.nrows)
-        print(qvals)
-        
         for i in range(num_steps):
             row = np.random.randint(self.asep.nrows)
 
-            prob_right = pvals[row] / (pvals[row] + qvals[row]) 
+            prob_right = pvals[row] / (pvals[row] + qvals[row])
 
             sign = int(np.random.rand() < prob_right) * 2 - 1
             self.asep._step(row, sign)
@@ -122,6 +146,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
         do_restrict = self.restrict.isChecked()
         self.grids = np.array([self.asep.togrid(state, restrict=do_restrict) for state in self.states])
         self.imview.setImage(self.grids.transpose(0, 2, 1), levels=(-1,1))
+        self.imview.ui.histogram.hide()
 
     def save(self):
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'Numpy data (*.npy)')
@@ -144,6 +169,23 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.l_val.setText(str(ncols))
         self.curr_steps.setText(str(len(self.states)) + ' steps')
         self.update_view()
+
+    def calc_mean(self, ptype=1):
+        tsteps = int(self.transient_steps.text())
+        if len(self.grids) <= tsteps:
+            print('Less steps than in the transient')
+            return
+        mgrids = self.grids[tsteps:].copy()
+        if ptype == 1:
+            mgrids[mgrids < 0] = 0
+            self.imview.setImage(mgrids.mean(0).T)
+            self.imview.ui.histogram.show()
+        elif ptype == 2:
+            mgrids[mgrids > 0] = 0
+            self.imview.setImage(-mgrids.mean(0).T)
+            self.imview.ui.histogram.show()
+        else:
+            print('Unknown particle type', ptype)
 
 def main():
     app = QtWidgets.QApplication([])
