@@ -69,7 +69,6 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.curr_steps = QtWidgets.QLabel('')
         line.addWidget(self.curr_steps)
 
-        '''
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
         label = QtWidgets.QLabel('Statistics:')
@@ -85,7 +84,6 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.transient_steps = QtWidgets.QLineEdit('5000')
         line.addWidget(self.transient_steps)
         line.addStretch(1)
-        '''
 
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
@@ -124,6 +122,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
             qvals = np.ones(self.asep.nrows)*float(self.q_val.text())
         except ValueError:
             qvals = np.random.rand(self.asep.nrows)
+        prob_right = pvals / (pvals + qvals)
 
         curr_steps = len(self.states)
         num_steps = int(self.num_steps.text())
@@ -131,9 +130,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
         for i in range(num_steps):
             row = np.random.randint(self.asep.nrows)
 
-            prob_right = pvals[row] / (pvals[row] + qvals[row])
-
-            sign = int(np.random.rand() < prob_right) * 2 - 1
+            sign = int(np.random.rand() < prob_right[row]) * 2 - 1
             self.asep._step(row, sign)
             self.states.append(self.asep.state.copy())
             sys.stderr.write('\r%d/%d' % (i+curr_steps+1, curr_steps + num_steps))
