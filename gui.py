@@ -122,19 +122,9 @@ class ASEPGUI(QtWidgets.QMainWindow):
             qvals = np.ones(self.asep.nrows)*float(self.q_val.text())
         except ValueError:
             qvals = np.random.rand(self.asep.nrows)
-        prob_right = pvals / (pvals + qvals)
 
-        curr_steps = len(self.states)
         num_steps = int(self.num_steps.text())
-
-        for i in range(num_steps):
-            row = np.random.randint(self.asep.nrows)
-
-            sign = int(np.random.rand() < prob_right[row]) * 2 - 1
-            self.asep._step(row, sign)
-            self.states.append(self.asep.state.copy())
-            sys.stderr.write('\r%d/%d' % (i+curr_steps+1, curr_steps + num_steps))
-        sys.stderr.write('\n')
+        self.states += self.asep.run(num_steps, pvals, qvals, accumulate=True)
 
         self.curr_steps.setText(str(len(self.states)) + ' steps')
         self.update_view()
