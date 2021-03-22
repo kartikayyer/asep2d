@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 
 class ASEP2D():
@@ -41,6 +42,29 @@ class ASEP2D():
         grid[state[~sel]-self.nrows, ~sel] = -1
 
         return grid
+
+    def run(self, num_steps, p_vals, q_vals, accumulate=False):
+        assert len(p_vals) == self.nrows
+        assert len(q_vals) == self.nrows
+
+        total_rate = p_vals + q_vals
+        prob_right = p_vals / total_rate
+        prob_row = total_rate / total_rate.sum()
+
+        if accumulate:
+            states = []
+
+        for i in range(num_steps):
+            row = np.random.choice(np.arange(self.nrows), 1, p=prob_row)
+            sign = int(np.random.rand() < prob_right[row]) * 2 - 1
+            self._step(row, sign)
+            if accumulate:
+                states.append(self.state.copy())
+            sys.stderr.write('\r%d/%d' % (i+1, num_steps))
+        sys.stderr.write('\n')
+
+        if accumulate:
+            return states
 
     def step_right(self, row):
         return self._step(row, 1)
