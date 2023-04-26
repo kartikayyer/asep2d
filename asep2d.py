@@ -9,7 +9,16 @@ class ASEP2D():
         self.nrows = nrows
         self.ncols = ncols
 
+        self._initialize()
         self.randomize()
+
+    def _initialize(self):
+        self.total_num_steps = 0
+        self.state = np.empty(self.ncols, dtype='i4')
+        self.curr1 = np.zeros(self.nrows, dtype='i8')
+        self.curr2 = np.zeros(self.nrows, dtype='i8')
+        self.mean_curr1 = []
+        self.mean_curr2 = []
 
     def randomize(self):
         '''Generate random state vector
@@ -17,8 +26,6 @@ class ASEP2D():
         Numbers from 0 to (nrows-1) indicate type 1 particle
         Numbers from nrows to (2*nrows-1) indicate type 2 particle
         '''
-        self.state = np.empty(self.ncols, dtype='i4')
-
         col1 = sorted(np.random.choice(range(self.ncols), self.nrows, replace=False))
         self.state[col1] = np.arange(self.nrows, dtype='i4')
 
@@ -27,6 +34,7 @@ class ASEP2D():
         self._init_state = self.state.copy()
 
     def reset(self):
+        self._initialize()
         self.state = self._init_state.copy()
 
     def togrid(self, state=None, restrict=False):
@@ -51,10 +59,6 @@ class ASEP2D():
         prob_right = p_vals / total_rate
         prob_row = total_rate / total_rate.sum()
 
-        curr1 = np.zeros(self.nrows, dtype = 'i4')
-        curr2 = np.zeros(self.nrows, dtype = 'i4') 
-        #[0] * self.nrows
-
         if accumulate:
             states = []
 
@@ -63,33 +67,35 @@ class ASEP2D():
             sign = int(np.random.rand() < prob_right[row]) * 2 - 1
             old_state = self.state.copy()
             self._step(row, sign)
-            new_state = self.state.copy()
 
             # Current computation
             if not np.array_equal(old_state, self.state):
-                curr1[row] += sign
+                self.curr1[row] += sign
                 diff = old_state - self.state
                 diff = diff[diff != 0]
-                #print(diff)
                 if abs(diff[0]) == self.nrows or abs(diff[-1]) == self.nrows:
                     if sign > 0:
-                        curr2[row] += 1
+                        self.curr2[row] += 1
                     else:
-                        curr2[self._radd(row, 1)] += -1
-                    #print(old_state, self.state, curr2)
+                        self.curr2[self._radd(row, 1)] += -1
             
+            self.total_num_steps += 1
             if accumulate:
                 states.append(self.state.copy())
+                self.mean_curr1.append(self.curr1.mean() / self.total_num_steps)
+                self.mean_curr2.append(self.curr2.mean() / self.total_num_steps)
             sys.stderr.write('\r%d/%d' % (i+1, num_steps))
         sys.stderr.write('\n')
-        print('Current of 1s')
-        print (*curr1, sep=",")
-        print('\n')
-        print('Current of 2s')
-        print (*curr2, sep=",")
 
+        '''
+        ncurr1 = self.curr1 / self.total_num_steps * 100
+        print('Current of 1\'s:', ncurr1.mean())
+        print (*np.round(ncurr1, 3), sep=",")
+        ncurr2 = self.curr2 / self.total_num_steps * 100
+        print('Current of 2\'s:', ncurr2.mean())
+        print (*np.round(ncurr2, 3), sep=",")
+        '''
 
-        #print(curr1, curr2)
         if accumulate:
             return states
 
@@ -122,15 +128,9 @@ class ASEP2D():
             self.state[1:ncol+1+roll_num] = self.state[:ncol+roll_num]
             self.state[0] = back_row + self.nrows
         else:
-            #print(ncol, roll_num)
             self.state[ncol+roll_num:-2] = self.state[ncol+roll_num+1:-1]
             self.state[-2] = back_row + self.nrows
         self.state = np.roll(self.state, -roll_num)
-        #else:
-        #    dest = sorted([self._cadd(back_col, 2*(sign>0)), ncol+2*(sign>0)])
-        #    src = sorted([self._cadd(back_col, (sign>0)), col+(sign>0)])
-        #    self.state[dest[0]:dest[1]-1] = self.state[src[0]:src[1]]
-        #    self.state[self._cadd(back_col, sign)] = back_row + self.nrows
         return 2
 
     def _cadd(self, val1, val2):
