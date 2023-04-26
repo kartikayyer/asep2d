@@ -51,18 +51,45 @@ class ASEP2D():
         prob_right = p_vals / total_rate
         prob_row = total_rate / total_rate.sum()
 
+        curr1 = np.zeros(self.nrows, dtype = 'i4')
+        curr2 = np.zeros(self.nrows, dtype = 'i4') 
+        #[0] * self.nrows
+
         if accumulate:
             states = []
 
         for i in range(num_steps):
             row = np.random.choice(np.arange(self.nrows), 1, p=prob_row)
             sign = int(np.random.rand() < prob_right[row]) * 2 - 1
+            old_state = self.state.copy()
             self._step(row, sign)
+            new_state = self.state.copy()
+
+            # Current computation
+            if not np.array_equal(old_state, self.state):
+                curr1[row] += sign
+                diff = old_state - self.state
+                diff = diff[diff != 0]
+                #print(diff)
+                if abs(diff[0]) == self.nrows or abs(diff[-1]) == self.nrows:
+                    if sign > 0:
+                        curr2[row] += 1
+                    else:
+                        curr2[self._radd(row, 1)] += -1
+                    #print(old_state, self.state, curr2)
+            
             if accumulate:
                 states.append(self.state.copy())
             sys.stderr.write('\r%d/%d' % (i+1, num_steps))
         sys.stderr.write('\n')
+        print('Current of 1s')
+        print (*curr1, sep=",")
+        print('\n')
+        print('Current of 2s')
+        print (*curr2, sep=",")
 
+
+        #print(curr1, curr2)
         if accumulate:
             return states
 
