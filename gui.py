@@ -18,7 +18,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
     def _init_ui(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('2D ASEP GUI')
-        self.resize(1000, 600)
+        self.resize(1000, 900)
         layout = QtWidgets.QVBoxLayout()
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
@@ -28,7 +28,14 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.imview.ui.roiBtn.hide()
         self.imview.ui.menuBtn.hide()
         self.imview.ui.histogram.hide()
-        layout.addWidget(self.imview)
+        layout.addWidget(self.imview, stretch=2)
+
+        line = QtWidgets.QHBoxLayout()
+        layout.addLayout(line, stretch=1)
+        self.current_barwidget = pg.PlotWidget()
+        line.addWidget(self.current_barwidget)
+        self.current_timewidget = pg.PlotWidget()
+        line.addWidget(self.current_timewidget)
 
         line = QtWidgets.QHBoxLayout()
         layout.addLayout(line)
@@ -65,6 +72,9 @@ class ASEPGUI(QtWidgets.QMainWindow):
         button = QtWidgets.QPushButton('Run')
         button.clicked.connect(self.run)
         line.addWidget(button)
+        self.accumulate = QtWidgets.QCheckBox('Accumulate')
+        self.accumulate.setChecked(True)
+        line.addWidget(self.accumulate)
         line.addStretch(1)
         self.curr_steps = QtWidgets.QLabel('')
         line.addWidget(self.curr_steps)
@@ -124,16 +134,42 @@ class ASEPGUI(QtWidgets.QMainWindow):
             qvals = np.random.rand(self.asep.nrows)
 
         num_steps = int(self.num_steps.text())
-        self.states += self.asep.run(num_steps, pvals, qvals, accumulate=True)
-
+        if self.accumulate.isChecked():
+            self.states += self.asep.run(num_steps, pvals, qvals, accumulate=True)
+        else:
+            self.asep.run(num_steps, pvals, qvals)
+            self.states = [self.asep.state.copy()]
         self.curr_steps.setText(str(len(self.states)) + ' steps')
         self.update_view()
+        self.update_current_plots()
 
     def update_view(self):
         do_restrict = self.restrict.isChecked()
         self.grids = np.array([self.asep.togrid(state, restrict=do_restrict) for state in self.states])
         self.imview.setImage(self.grids.transpose(0, 2, 1), levels=(-1,1))
         self.imview.ui.histogram.hide()
+
+    def update_current_plots(self):
+        self.current_barwidget.getPlotItem().clear()
+        barplot = pg.BarGraphItem(x=np.arange(self.asep.nrows)-0.2,
+                                  height=self.asep.curr1,
+                                  width=0.4,
+                                  brush=(0,9))
+        self.current_barwidget.addItem(barplot)
+        barplot = pg.BarGraphItem(x=np.arange(self.asep.nrows)+0.2,
+                                  height=self.asep.curr2,
+                                  width=0.4,
+                                  brush=(5,9))
+        self.current_barwidget.addItem(barplot)
+
+        print(len(self.asep.mean_curr1))
+        self.current_timewidget.getPlotItem().clear()
+        self.current_timewidget.plot(self.asep.mean_curr1, pen=(0,9))
+        self.current_timewidget.plot(self.asep.mean_curr2, pen=(5,9))
+        #timeplot1 = pg.PlotDataItem(self.asep.mean_curr1, pen=(0,9))
+        #self.current_timewidget.getPlotItem().addItem(timeplot1)
+        #timeplot2 = pg.PlotDataItem(self.asep.mean_curr2, pen=(5,9))
+        #self.current_timewidget.getPlotItem().addItem(timeplot2)
 
     def save(self):
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'Numpy data (*.npy)')
