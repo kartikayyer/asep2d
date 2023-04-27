@@ -162,14 +162,10 @@ class ASEPGUI(QtWidgets.QMainWindow):
                                   brush=(5,9))
         self.current_barwidget.addItem(barplot)
 
-        print(len(self.asep.mean_curr1))
         self.current_timewidget.getPlotItem().clear()
         self.current_timewidget.plot(self.asep.mean_curr1, pen=(0,9))
         self.current_timewidget.plot(self.asep.mean_curr2, pen=(5,9))
-        #timeplot1 = pg.PlotDataItem(self.asep.mean_curr1, pen=(0,9))
-        #self.current_timewidget.getPlotItem().addItem(timeplot1)
-        #timeplot2 = pg.PlotDataItem(self.asep.mean_curr2, pen=(5,9))
-        #self.current_timewidget.getPlotItem().addItem(timeplot2)
+        self.current_timewidget.plot(np.array(self.asep.mean_curr1)-np.array(self.asep.mean_curr2), pen=(3,9))
 
     def save(self):
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'Numpy data (*.npy)')
