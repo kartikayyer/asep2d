@@ -51,7 +51,7 @@ class ASEP2D():
 
         return grid
 
-    def run(self, num_steps, p_vals, q_vals, accumulate=False):
+    def run(self, num_steps, p_vals, q_vals, accumulate_states=False, accumulate_curr=True):
         assert len(p_vals) == self.nrows
         assert len(q_vals) == self.nrows
 
@@ -59,7 +59,7 @@ class ASEP2D():
         prob_right = p_vals / total_rate
         prob_row = total_rate / total_rate.sum()
 
-        if accumulate:
+        if accumulate_states:
             states = []
 
         for i in range(num_steps):
@@ -80,23 +80,15 @@ class ASEP2D():
                         self.curr2[self._radd(row, 1)] += -1
             
             self.total_num_steps += 1
-            if accumulate:
+            if accumulate_states:
                 states.append(self.state.copy())
+            if accumulate_curr:
                 self.mean_curr1.append(self.curr1.mean() / self.total_num_steps)
                 self.mean_curr2.append(self.curr2.mean() / self.total_num_steps)
             sys.stderr.write('\r%d/%d' % (i+1, num_steps))
         sys.stderr.write('\n')
 
-        '''
-        ncurr1 = self.curr1 / self.total_num_steps * 100
-        print('Current of 1\'s:', ncurr1.mean())
-        print (*np.round(ncurr1, 3), sep=",")
-        ncurr2 = self.curr2 / self.total_num_steps * 100
-        print('Current of 2\'s:', ncurr2.mean())
-        print (*np.round(ncurr2, 3), sep=",")
-        '''
-
-        if accumulate:
+        if accumulate_states:
             return states
 
     def step_right(self, row):
