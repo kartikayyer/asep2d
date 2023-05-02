@@ -5,6 +5,7 @@ import sys
 from PyQt5 import QtWidgets, QtGui, QtCore
 import pyqtgraph as pg
 import numpy as np
+import h5py
 
 import asep2d
 
@@ -119,34 +120,37 @@ class ASEPGUI(QtWidgets.QMainWindow):
 
     def reset(self):
         self.asep = asep2d.ASEP2D(nrows=int(self.n_val.text()), ncols=int(self.l_val.text()))
-        del self.states
-        del self.grids
+        self.pvals = None
+        self.qvals = None
+        self.grids = []
         self.states = [self.asep.state.copy()]
         self.curr_steps.setText('1 step')
         self.update_view()
 
     def run(self):
         try:
-            pvals = np.ones(self.asep.nrows)*float(self.p_val.text())
+            self.pvals = np.ones(self.asep.nrows)*float(self.p_val.text())
         except ValueError:
-            pvals = np.random.rand(self.asep.nrows)
+            if self.pvals is None:
+                self.pvals = np.random.rand(self.asep.nrows)
 
         try:
-            qvals = np.ones(self.asep.nrows)*float(self.q_val.text())
+            self.qvals = np.ones(self.asep.nrows)*float(self.q_val.text())
         except ValueError:
-            qvals = np.random.rand(self.asep.nrows)
+            if self.qvals is None:
+                self.qvals = np.random.rand(self.asep.nrows)
 
         num_steps = int(self.num_steps.text())
         if self.accumulate.isChecked():
-            self.states += self.asep.run(num_steps, pvals, qvals,
+            self.states += self.asep.run(num_steps, self.pvals, self.qvals,
                                          accumulate_states=True,
                                          accumulate_curr=self.acc_curr.isChecked())
         else:
-            self.asep.run(num_steps, pvals, qvals,
-                          accumulate_states=True,
+            self.asep.run(num_steps, self.pvals, self.qvals,
+                          accumulate_states=False,
                           accumulate_curr=self.acc_curr.isChecked())
             self.states = [self.asep.state.copy()]
-        self.curr_steps.setText(str(len(self.states)) + ' steps')
+        self.curr_steps.setText(str(self.asep.total_num_steps) + ' steps')
         self.update_view()
         self.update_current_plots()
 
@@ -175,27 +179,68 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.current_timewidget.plot(xvals, self.asep.mean_curr2, pen=(5,9))
         self.current_timewidget.plot(xvals, np.array(self.asep.mean_curr1)-np.array(self.asep.mean_curr2), pen=(3,9))
 
+        n = self.asep.nrows
+        L = self.asep.ncols
+        p = self.pvals[0]
+        q = self.qvals[0]
+        theo_current = (p-q) * (L - n) / (L - 1) / n / (p + q)
+        line = pg.InfiniteLine(theo_current, angle=0, pen='w')
+        self.current_timewidget.addItem(line)
+
     def save(self):
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'Numpy data (*.npy)')
-        if fname:
-            print('Saving to', fname)
-            np.save(fname, np.array(self.states))
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'HDF5 file (*.h5)')
+        if not fname:
+            return
+
+        print('Saving to', fname)
+        with h5py.File(fname, 'w') as f:
+            f['params/n'] = self.asep.nrows
+            f['params/L'] = self.asep.ncols
+            f['params/p_values'] = self.pvals
+            f['params/q_values'] = self.qvals
+            f['data/initial_state'] = self.asep._init_state
+            f['data/state'] = self.asep.state
+            f['data/current_1'] = self.asep.curr1
+            f['data/current_2'] = self.asep.curr2
+            f['data/mean_curr1'] = self.asep.mean_curr1
+            f['data/mean_curr2'] = self.asep.mean_curr2
+            f['data/num_steps'] = self.asep.total_num_steps
+            if len(self.states) > 1:
+                f['data/all_states'] = self.states
 
     def load(self):
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load states', '', 'Numpy data (*.npy)')
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load states', '', 'HDF5 file (*.h5)')
         if not fname:
             return
 
         print('Loading from', fname)
-        self.states = list(np.load(fname))
-        ncols = len(self.states[0])
-        nrows = (self.states[0].max() + 1) // 2
-        self.asep = asep2d.ASEP2D(nrows, ncols)
-        self.asep.state = self.states[-1].copy()
-        self.n_val.setText(str(nrows))
-        self.l_val.setText(str(ncols))
-        self.curr_steps.setText(str(len(self.states)) + ' steps')
+        with h5py.File(fname, 'r') as f:
+            self.n_val.setText(str(f['params/n'][...]))
+            self.l_val.setText(str(f['params/L'][...]))
+            self.asep = asep2d.ASEP2D(nrows=int(self.n_val.text()), ncols=int(self.l_val.text()))
+
+            self.pvals = f['params/p_values'][:]
+            self.qvals = f['params/q_values'][:]
+            self.p_val.setText(str(self.pvals[0]))
+            self.q_val.setText(str(self.qvals[0]))
+
+            self.asep.state = f['data/state'][:]
+            self.asep._init_state = f['data/initial_state'][:]
+            self.asep.total_num_steps = f['data/num_steps'][...]
+            self.asep.curr1 = f['data/current_1'][:]
+            self.asep.curr2 = f['data/current_2'][:]
+            self.asep.mean_curr1 = list(f['data/mean_curr1'][:])
+            self.asep.mean_curr2 = list(f['data/mean_curr2'][:])
+
+            if 'data/all_states' in f:
+                self.states = list(f['data/all_states'][:])
+            else:
+                self.states = [self.asep.state.copy()]
+            self.grids = np.array([self.asep.togrid(state, restrict=self.restrict.isChecked()) for state in self.states])
+            self.curr_steps.setText(str(self.asep.total_num_steps) + ' steps')
+
         self.update_view()
+        self.update_current_plots()
 
     def calc_mean(self, ptype=1):
         tsteps = int(self.transient_steps.text())
