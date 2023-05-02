@@ -4,3 +4,4 @@ __pycache__/
 # Data files
 *.npy
 *.mp4
+*.h5
