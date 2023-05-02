@@ -18,7 +18,7 @@ class ASEPGUI(QtWidgets.QMainWindow):
     def _init_ui(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('2D ASEP GUI')
-        self.resize(1000, 900)
+        self.resize(1000, 800)
         layout = QtWidgets.QVBoxLayout()
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
@@ -73,8 +73,11 @@ class ASEPGUI(QtWidgets.QMainWindow):
         button.clicked.connect(self.run)
         line.addWidget(button)
         self.accumulate = QtWidgets.QCheckBox('Accumulate')
-        self.accumulate.setChecked(True)
+        self.accumulate.setChecked(False)
         line.addWidget(self.accumulate)
+        self.acc_curr = QtWidgets.QCheckBox('Acc. currents')
+        self.acc_curr.setChecked(True)
+        line.addWidget(self.acc_curr)
         line.addStretch(1)
         self.curr_steps = QtWidgets.QLabel('')
         line.addWidget(self.curr_steps)
@@ -135,9 +138,13 @@ class ASEPGUI(QtWidgets.QMainWindow):
 
         num_steps = int(self.num_steps.text())
         if self.accumulate.isChecked():
-            self.states += self.asep.run(num_steps, pvals, qvals, accumulate=True)
+            self.states += self.asep.run(num_steps, pvals, qvals,
+                                         accumulate_states=True,
+                                         accumulate_curr=self.acc_curr.isChecked())
         else:
-            self.asep.run(num_steps, pvals, qvals)
+            self.asep.run(num_steps, pvals, qvals,
+                          accumulate_states=True,
+                          accumulate_curr=self.acc_curr.isChecked())
             self.states = [self.asep.state.copy()]
         self.curr_steps.setText(str(len(self.states)) + ' steps')
         self.update_view()
@@ -163,9 +170,10 @@ class ASEPGUI(QtWidgets.QMainWindow):
         self.current_barwidget.addItem(barplot)
 
         self.current_timewidget.getPlotItem().clear()
-        self.current_timewidget.plot(self.asep.mean_curr1, pen=(0,9))
-        self.current_timewidget.plot(self.asep.mean_curr2, pen=(5,9))
-        self.current_timewidget.plot(np.array(self.asep.mean_curr1)-np.array(self.asep.mean_curr2), pen=(3,9))
+        xvals = np.arange(1, len(self.asep.mean_curr1)+1)
+        self.current_timewidget.plot(xvals, self.asep.mean_curr1, pen=(0,9))
+        self.current_timewidget.plot(xvals, self.asep.mean_curr2, pen=(5,9))
+        self.current_timewidget.plot(xvals, np.array(self.asep.mean_curr1)-np.array(self.asep.mean_curr2), pen=(3,9))
 
     def save(self):
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save states', '', 'Numpy data (*.npy)')
